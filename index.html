@@ -1,0 +1,744 @@
+<!doctype html>
+<!--
+  Open directly in a browser. Answers stay in memory and reset on reload.
+  Temporary dev shortcut: "Dev: random results" picks independent center totals
+  across the full range, fills matching 1–5 answers with reverse items accounted
+  for, and submits through the normal form; nothing persists on refresh.
+  Questionnaire conventions: past-month frequency, all 30 answers required,
+  independent reverse-scored means rounded to five.
+  Submitting with unanswered questions marks those groups with red outlines.
+  The plain title is 64px; question statements and numbers are 24px.
+  Answer options use normal capitalization and 4px padding on all sides.
+  Trusted answer changes and button actions use Web Audio. Incomplete Submit plays
+  a soft 150ms buzz; other actions retain the Organic Tock. Submit chooses its cue
+  after validation. Dev submissions have no submitter and rely on the dev button's
+  click, so each action plays one cue. Audio uses no files/network and never blocks the form.
+  Displayed scores select reflection bands; near-line labels keep the band name.
+  Results show the area meanings once, then each score/band and its one-sentence result.
+  Detail sections use the supplied plain-English copy: two practices for Open,
+  three for Closed/Mixed, with origins only for Closed/Mixed. Copies mirror the score blocks.
+  Notice, watch-for, and origins paragraphs are complete sentences, rendered
+  directly without label prefixes or colons.
+  Summary priority: all-high/all-low, distinct lowest, distinct highest, close, no standout.
+  Outlier and close-together checks use unrounded scores; exact 15-point outliers
+  take precedence over the inclusive 15-point close range.
+  The 25/75 bands and 15-point comparison rule guide reflection; they are product
+  conventions, not validated cutoffs or statistically significant differences.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Head / Heart / Gut</title>
+  <link rel="icon" href="data:,">
+  <style>
+    @font-face {
+      font-family: "PP Neue Montreal";
+      src: url("./PPNeueMontreal-Book.otf") format("opentype");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "PP Neue Montreal Medium";
+      src: url("./PPNeueMontreal-Medium.otf") format("opentype");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    #area-meanings strong { font-family: "PP Neue Montreal Medium", "PP Neue Montreal", Arial, Helvetica, sans-serif; font-weight: 400; }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    ::selection { background: #000; color: #fff; }
+    body {
+      margin: 32px 16px;
+      background: #fff;
+      color: #000;
+      font: 16px/1.5 "PP Neue Montreal", Arial, Helvetica, sans-serif;
+      /* The title's last box bleeds to the right page edge; this keeps that bleed from adding a horizontal scrollbar. */
+      overflow-x: hidden;
+    }
+    main { max-width: 90ch; margin: 0 auto; }
+    main * { min-width: 0; }
+    /* Boxes touch edge to edge. Caps are sized so HEART fills its box width; line-height equals cap height so the letters span the box height with an even 8px inset. */
+    #page-title { container-type: inline-size; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0 0 24px; user-select: none; -webkit-user-select: none; }
+    #page-title span { padding: 7px; border: 1px solid #000; background: #000; color: #fff; font-size: calc((100cqw / 3 - 16px) / 3.05); line-height: 0.715; text-transform: uppercase; text-indent: -0.076em; white-space: nowrap; }
+    #page-title span:nth-child(2) { background: #fff; color: #000; }
+    /* Extends the last box from the column edge to the right edge of the page. Its overlapping copies of GUT are drawn with text-shadow
+       (set in script from the box width), so they are decorative and never read aloud. */
+    #page-title span:nth-child(3) { margin-right: calc((100cqw - 100vw) / 2); text-indent: -0.041em; overflow: hidden; }
+    h2 { font-size: 1.5rem; }
+    h3 { font-size: 1.25rem; }
+    h4 { font-size: 18px; }
+    h2, h3, h4 { line-height: 1.25; }
+    button, input, textarea { font: inherit; color: #000; }
+    button, textarea { background: #fff; border: 1px solid #000; border-radius: 0; }
+    /* Buttons echo the title: uppercase caps on a cap-height line box, so the letters sit about 4px from every edge. */
+    button { padding: 3px 3px 2px; cursor: pointer; background: #fff; color: #000; font-size: 22px; line-height: 0.715; text-transform: uppercase; text-indent: -0.06em; white-space: nowrap; }
+    button[type="submit"], #copy-results { background: #000; color: #fff; }
+    @media (hover: hover) {
+      button:hover { background: #000; color: #fff; }
+      button[type="submit"]:hover, #copy-results:hover { background: #fff; color: #000; }
+    }
+    button, .answer-options label { user-select: none; -webkit-user-select: none; }
+    :focus-visible, [tabindex="-1"]:focus { outline: 2px solid #000; outline-offset: 3px; }
+    /* Keep results-heading focus for navigation without drawing a box around it. */
+    #results-heading:focus { outline: none; }
+    #questions { display: flex; flex-direction: column; gap: 8px; margin: 24px 0; }
+    .question, .question > * { margin: 0; }
+    .question { padding: 0 0 32px; border: 0; min-inline-size: 0; }
+    .question legend { padding: 0; margin-bottom: 8px; font-size: 20px; }
+    .answer-options { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+    .answer-options label { display: flex; align-items: center; justify-content: center; padding: 4px; border: 1px solid #000; background: #fff; color: #000; text-align: center; cursor: pointer; }
+    .answer-options input:checked + label { background: #000; color: #fff; }
+    .answer-options input:focus-visible + label { outline: 2px solid #000; outline-offset: 3px; }
+    /* Move 8px outside the outline while keeping the question's total spacing unchanged.
+       Side padding grows the red rectangle 4px per side; the matching negative margin keeps content in place. */
+    .question[aria-invalid="true"] { padding: 0 6px 24px; margin: 0 -4px 8px; outline: 1px solid #c00; outline-offset: 2px; }
+    @media (min-width: 768px) {
+      .answer-options { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; clip-path: inset(50%); white-space: nowrap; overflow: hidden; }
+    #results { margin-top: 32px; }
+    .score { margin: 0 0 32px; }
+    .score p { margin: 0 0 8px; }
+    .score-marker { display: inline-block; position: relative; top: -2px; width: 4px; height: 4px; margin: 0 4px; background: #000; vertical-align: middle; }
+    .score-bar { width: 100%; height: 10px; border: 1px solid #000; background: #fff; }
+    .score-fill { height: 100%; background: #000; }
+    #score-explanation { margin-bottom: 24px; }
+    #score-bars { margin-bottom: 40px; }
+    .center-detail { margin: 32px 0; }
+    li + li { margin-top: 8px; }
+    .center-detail ol { margin: 0 0 16px; padding: 0; list-style-position: inside; }
+    .result-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    #copy-fallback { margin-top: 16px; }
+    #copy-fallback label { display: block; }
+    textarea { display: block; width: 100%; padding: 8px; resize: vertical; }
+    #validation-message:empty, #copy-status:empty { margin: 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <p id="page-title"><span>Head</span><span>Heart</span><span>Gut</span></p>
+    <p id="answer-guidance">Answer all 30 questions to see your results. </p>
+    <button type="button" id="dev-random-results">Dev: random results</button>
+    <form id="questionnaire" novalidate>
+      <div id="questions"></div>
+      <button type="submit">Submit</button>
+      <p id="validation-message" role="alert"></p>
+    </form>
+    <section id="results" hidden aria-labelledby="results-heading">
+      <h2 id="results-heading" tabindex="-1">Your results</h2>
+      <div id="summary"></div>
+      <div id="area-meanings">
+        <p><strong>Head</strong> is how clearly you think, and how well you plan and set limits.</p>
+        <p><strong>Heart</strong> is how well you notice your feelings, let yourself feel them, and connect with other people.</p>
+        <p><strong>Gut</strong> is how easily you know what you want and act on it.</p>
+      </div>
+      <p id="score-explanation">Each score ranges from 0 to 100. A higher score means that area is more open and flexible.</p>
+      <div id="score-bars"></div>
+      <div id="center-details"></div>
+      <div class="result-actions">
+        <button type="button" id="copy-results">Copy results</button>
+        <button type="button" id="start-over">Start over</button>
+      </div>
+      <p id="copy-status" role="status"></p>
+      <div id="copy-fallback" hidden>
+        <label for="copy-text">Results to copy</label>
+        <textarea id="copy-text" rows="8" readonly></textarea>
+      </div>
+    </section>
+  </main>
+  <script>
+    "use strict";
+    const questions = [
+      { center: "head", reverse: false, statement: "When someone asks why I believe something, I explain my reasons clearly." },
+      { center: "heart", reverse: false, statement: "I can put a specific name to what I feel in the moment." },
+      { center: "gut", reverse: false, statement: "I know what I want before I can explain why." },
+      { center: "head", reverse: true, statement: "My thoughts loop on the same worry without getting anywhere." },
+      { center: "gut", reverse: true, statement: "Before a small decision, I wait for someone else's OK." },
+      { center: "heart", reverse: false, statement: "When I feel hurt, I let someone see how I feel." },
+      { center: "gut", reverse: false, statement: "When I want something, I act on it without a long delay." },
+      { center: "head", reverse: false, statement: "Before a busy week, I decide what matters most and plan around it." },
+      { center: "heart", reverse: true, statement: "When strong feelings come up, I go numb." },
+      { center: "heart", reverse: false, statement: "I feel moved by other people's joy and pain." },
+      { center: "gut", reverse: false, statement: "I say no plainly, without over-explaining." },
+      { center: "head", reverse: false, statement: "When something confuses me, I work out how its parts fit together." },
+      { center: "gut", reverse: true, statement: "When I'm under pressure, I feel tension in my stomach." },
+      { center: "head", reverse: false, statement: "I set limits on my time and energy, and I keep them." },
+      { center: "heart", reverse: false, statement: "During a conflict, I stay emotionally connected to the other person." },
+      { center: "gut", reverse: false, statement: "I trust my hunches about people and situations." },
+      { center: "head", reverse: true, statement: "When I try to think something through, my thoughts become scattered." },
+      { center: "heart", reverse: false, statement: "When I lose something important to me, I let myself feel the grief." },
+      { center: "gut", reverse: false, statement: "When I feel angry, I say so clearly and calmly." },
+      { center: "heart", reverse: true, statement: "I keep people at a distance, even people I trust." },
+      { center: "head", reverse: false, statement: "When I work on a task, I stay focused on it." },
+      { center: "gut", reverse: true, statement: "I talk myself out of things I want to do." },
+      { center: "heart", reverse: false, statement: "When I make a mistake, I treat myself kindly." },
+      { center: "head", reverse: false, statement: "I notice when a thought is just a thought, rather than a fact." },
+      { center: "gut", reverse: false, statement: "My body feels calm and steady on most days." },
+      { center: "heart", reverse: false, statement: "When I am apart from people I love, I feel connected to them." },
+      { center: "head", reverse: true, statement: "I adopt other people's opinions without examining them." },
+      { center: "gut", reverse: false, statement: "I go after things I want, even when I'm not sure how they'll turn out." },
+      { center: "heart", reverse: true, statement: "When someone shows me care, I find it hard to take in." },
+      { center: "head", reverse: false, statement: "My plans leave room for what I want in the moment." }
+    ];
+    // null means the question has not been answered.
+    const responseLabels = ["Almost never", "Rarely", "Sometimes", "Often", "Almost always"];
+    const answers = Array(30).fill(null);
+    const centers = ["head", "heart", "gut"];
+    const questionList = document.getElementById("questions");
+    const results = document.getElementById("results");
+    const validationMessage = document.getElementById("validation-message");
+    const copyStatus = document.getElementById("copy-status");
+    const copyFallback = document.getElementById("copy-fallback");
+    const copyText = document.getElementById("copy-text");
+    let submittedScores = null;
+
+    /*
+     * Organic "Subtle Tock" (interaction.tap), adapted from sensory-ui:
+     * https://github.com/SatyamVyas04/sensory-ui/tree/a5976f31c6041c10c37fd9be87d29c0c62e4047e
+     *
+     * MIT License
+     * Copyright (c) 2026 Satyam Vyas
+     *
+     * Permission is hereby granted, free of charge, to any person obtaining a copy
+     * of this software and associated documentation files (the "Software"), to deal
+     * in the Software without restriction, including without limitation the rights
+     * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+     * copies of the Software, and to permit persons to whom the Software is
+     * furnished to do so, subject to the following conditions:
+     *
+     * The above copyright notice and this permission notice shall be included in all
+     * copies or substantial portions of the Software.
+     *
+     * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+     * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+     * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+     * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+     * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+     * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+     * SOFTWARE.
+     */
+    let tockAudio = null;
+
+    function getTockAudio() {
+      if (tockAudio && tockAudio.context.state !== "closed") return tockAudio;
+      const context = new AudioContext();
+      const noise = context.createBuffer(1, Math.floor(context.sampleRate * 0.008 * 1.3), context.sampleRate);
+      const samples = noise.getChannelData(0);
+      for (let i = 0; i < samples.length; i++) {
+        samples[i] = (Math.random() * 2 - 1) * Math.exp(-i / (35 * 1.3));
+      }
+
+      const impulse = context.createBuffer(2, Math.floor(context.sampleRate * 0.4), context.sampleRate);
+      for (let channel = 0; channel < 2; channel++) {
+        const data = impulse.getChannelData(channel);
+        for (let i = 0; i < data.length; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-(i / context.sampleRate) * 3);
+        }
+      }
+      const room = context.createConvolver();
+      room.buffer = impulse;
+      const dry = context.createGain();
+      dry.gain.value = 0.85;
+      const wet = context.createGain();
+      wet.gain.value = 0.15;
+      const input = context.createGain();
+      input.connect(dry).connect(context.destination);
+      input.connect(room).connect(wet).connect(context.destination);
+      tockAudio = { context, input, noise };
+      return tockAudio;
+    }
+
+    async function playTock() {
+      if (typeof window.AudioContext !== "function") return;
+      try {
+        const { context, input, noise } = getTockAudio();
+        if (context.state !== "running") await context.resume();
+        const time = context.currentTime;
+        const duration = 0.008 * 1.3;
+        const volume = 0.35 * 0.28 * 0.85;
+        const frequency = 3800 * 0.9;
+        const source = context.createBufferSource();
+        source.buffer = noise;
+        const filter = context.createBiquadFilter();
+        filter.type = "bandpass";
+        filter.frequency.value = frequency;
+        filter.Q.value = 2.5 * 3;
+        const noiseGain = context.createGain();
+        noiseGain.gain.value = volume;
+        source.connect(filter).connect(noiseGain).connect(input);
+
+        const tone = context.createOscillator();
+        tone.type = "triangle";
+        tone.frequency.value = frequency;
+        const envelope = context.createGain();
+        envelope.gain.setValueAtTime(0.001, time);
+        envelope.gain.linearRampToValueAtTime(volume * 0.3, time + 0.001);
+        envelope.gain.exponentialRampToValueAtTime(0.001, time + duration * 1.5);
+        tone.connect(envelope).connect(input);
+        tone.onended = () => {
+          source.disconnect();
+          filter.disconnect();
+          noiseGain.disconnect();
+          tone.disconnect();
+          envelope.disconnect();
+        };
+        source.start(time);
+        tone.start(time);
+        tone.stop(time + duration * 1.5 + 0.01);
+      } catch {
+        // Optional audio must not prevent answers or buttons from working.
+      }
+    }
+
+    async function playValidationBuzz() {
+      if (typeof window.AudioContext !== "function") return;
+      try {
+        const { context, input } = getTockAudio();
+        if (context.state !== "running") await context.resume();
+        const time = context.currentTime;
+        const duration = 0.14;
+        const buzz = context.createOscillator();
+        buzz.type = "triangle";
+        buzz.frequency.setValueAtTime(170, time);
+        buzz.frequency.exponentialRampToValueAtTime(110, time + duration);
+        const modulation = context.createOscillator();
+        modulation.type = "sine";
+        modulation.frequency.value = 35;
+        const depth = context.createGain();
+        depth.gain.value = 20;
+        modulation.connect(depth).connect(buzz.frequency);
+        const filter = context.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.value = 700;
+        filter.Q.value = 0.6;
+        const envelope = context.createGain();
+        envelope.gain.setValueAtTime(0, time);
+        envelope.gain.linearRampToValueAtTime(0.035, time + 0.006);
+        envelope.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+        envelope.gain.linearRampToValueAtTime(0, time + duration + 0.01);
+        buzz.connect(filter).connect(envelope).connect(input);
+        buzz.onended = () => {
+          buzz.disconnect();
+          modulation.disconnect();
+          depth.disconnect();
+          filter.disconnect();
+          envelope.disconnect();
+        };
+        modulation.start(time);
+        buzz.start(time);
+        modulation.stop(time + duration + 0.01);
+        buzz.stop(time + duration + 0.01);
+      } catch {
+        // Optional audio must not prevent validation from working.
+      }
+    }
+
+    function clearCopyState() {
+      copyStatus.textContent = "";
+      copyFallback.hidden = true;
+      copyText.value = "";
+    }
+
+    function clearValidation() {
+      validationMessage.textContent = "";
+      questionList.querySelectorAll("[aria-invalid]").forEach(input => input.removeAttribute("aria-invalid"));
+    }
+
+    function clearResults() {
+      results.hidden = true;
+      ["score-bars", "summary", "center-details"].forEach(id => document.getElementById(id).replaceChildren());
+      submittedScores = null;
+      clearCopyState();
+    }
+
+    function setAnswer(index, value) {
+      if (answers[index] !== value && submittedScores !== null) clearResults();
+      answers[index] = value;
+      const number = index + 1;
+      document.querySelectorAll(`#question-${number} input[type="radio"]`).forEach(input => {
+        input.checked = Number(input.value) === value;
+      });
+      document.getElementById(`status-${number}`).textContent = `Selected: ${responseLabels[value - 1]}.`;
+      clearValidation();
+    }
+
+    function markAnswer(event) {
+      const input = event.currentTarget;
+      setAnswer(Number(input.dataset.index), Number(input.value));
+      if (event.isTrusted) playTock();
+    }
+
+    questions.forEach((question, index) => {
+      const number = index + 1;
+      const wrapper = document.createElement("fieldset");
+      wrapper.id = `question-${number}`;
+      wrapper.className = "question";
+      wrapper.setAttribute("aria-describedby", `scale-key answer-guidance status-${number}`);
+      const legend = document.createElement("legend");
+      legend.textContent = `${number}. ${question.statement}`;
+      const control = document.createElement("div");
+      control.className = "answer-options";
+      responseLabels.forEach((text, option) => {
+        const input = document.createElement("input");
+        input.type = "radio";
+        input.className = "visually-hidden";
+        input.id = `answer-${number}-${option + 1}`;
+        input.name = `answer-${number}`;
+        input.value = String(option + 1);
+        input.dataset.index = index;
+        input.addEventListener("change", markAnswer);
+        const label = document.createElement("label");
+        label.htmlFor = input.id;
+        label.textContent = text;
+        control.append(input, label);
+      });
+      const status = document.createElement("span");
+      status.id = `status-${number}`;
+      status.className = "visually-hidden";
+      status.textContent = "Unanswered.";
+      wrapper.append(legend, control, status);
+      questionList.append(wrapper);
+    });
+
+    function getBand(score) {
+      if (score <= 25) return "Closed";
+      if (score >= 75) return "Open";
+      return "Mixed";
+    }
+
+    function getBandLabel(score) {
+      const band = getBand(score);
+      if (Math.abs(score - 25) <= 5) return `${band}, near ${band === "Closed" ? "Mixed" : "Closed"}`;
+      if (Math.abs(score - 75) <= 5) return `${band}, near ${band === "Open" ? "Mixed" : "Open"}`;
+      return band;
+    }
+
+    function calculateScores(answers) {
+      return centers.map(center => {
+        let sum = 0;
+        let answered = 0;
+        questions.forEach((question, index) => {
+          const response = answers[index];
+          if (question.center === center) {
+            sum += question.reverse ? 6 - response : response;
+            answered += 1;
+          }
+        });
+        const unroundedScore = ((sum - answered) * 25) / answered;
+        // Round from the integer sum so mathematical half steps round upward.
+        const score = Math.round(((sum - answered) * 5) / answered) * 5;
+        return { center, answered, unroundedScore, score, band: getBand(score) };
+      });
+    }
+
+    document.getElementById("questionnaire").addEventListener("submit", event => {
+      event.preventDefault();
+      clearValidation();
+      const missing = answers.flatMap((answer, index) => answer === null ? [index + 1] : []);
+      if (missing.length) {
+        clearResults();
+        validationMessage.textContent = `Choose an answer for every question. Unanswered: ${missing.join(", ")}.`;
+        missing.forEach(number => document.getElementById(`question-${number}`).setAttribute("aria-invalid", "true"));
+        document.getElementById(`answer-${missing[0]}-1`).focus({ preventScroll: true });
+        document.getElementById(`question-${missing[0]}`).scrollIntoView({ block: "start" });
+        if (event.isTrusted && event.submitter) playValidationBuzz();
+        return;
+      }
+      renderResults(calculateScores(answers));
+      if (event.isTrusted && event.submitter) playTock();
+    });
+
+    const centerContent = {
+      head: {
+        Open: {
+          description: "You think clearly and set valuable top-down constraints and limits that serve you.",
+          signs: "You might notice you think clearly, focus well, and stay curious.",
+          watch: "Watch for thinking about things instead of feeling them or acting on them.",
+          practices: [
+            "After you understand something, ask yourself what you feel about it and what you will do.",
+            "Sit for 10 minutes with no task for your mind."
+          ]
+        },
+        Mixed: {
+          description: "You usually think clearly and plan well, but stress can make you overthink or lose focus.",
+          signs: "You might notice you think clearly on good days but overthink or feel foggy on hard days.",
+          practices: [
+            "When a thought keeps repeating, write it down until it stops.",
+            "Work on one task for one hour with your phone in another room.",
+            'When you catch yourself overthinking, say "thinking" to yourself and notice what you can see and hear.',
+            "Each Sunday, choose the three things that matter most this week and plan around them."
+          ],
+          origins: "This can come from little quiet time to think, few examples of how to reason things through, or strong emotions that left little room to reflect."
+        },
+        Closed: {
+          description: "You often find it hard to think clearly, focus, or plan around what matters to you.",
+          signs: "You might notice you get stuck in repeating thoughts, lose focus quickly, or take on other people's opinions without checking them.",
+          practices: [
+            "Spend 20 minutes a day alone with no phone, music, or reading.",
+            "Count your breaths from 1 to 10. When you lose count, start again.",
+            "Read one book slowly and take notes."
+          ],
+          origins: "This can come from growing up in a noisy or chaotic home with no quiet time, having adults discourage questions, or not having anyone explain their reasoning to you."
+        }
+      },
+      heart: {
+        Open: {
+          description: "You notice your feelings, share them, and let people get close.",
+          signs: "You might notice you feel deeply, share easily, and stay close to people in hard moments.",
+          watch: "Watch for feeling a lot without acting on it.",
+          practices: [
+            "When you care about someone, do one concrete thing for them.",
+            "Keep clear limits so that being open does not wear you out."
+          ]
+        },
+        Mixed: {
+          description: "You feel close to some people, but you hold back your feelings in other situations.",
+          signs: "You might notice you are close to a few people but distant from most. You may recognize your feelings late or find that they come out in other ways.",
+          practices: [
+            "Three times a day, name what you feel in one word.",
+            "Spend 10 minutes wishing yourself and one other person well.",
+            "Each day, tell one person you trust how you really feel."
+          ],
+          origins: "This can come from having your feelings noticed sometimes and ignored at other times, or from a loss you never fully grieved."
+        },
+        Closed: {
+          description: "You often keep your feelings to yourself and keep people at a distance.",
+          signs: "You might notice you change the subject when feelings come up, feel uncomfortable with compliments, or keep even trusted people at a distance.",
+          practices: [
+            "When you feel something, find where you feel it in your body and stay with it for one minute.",
+            "Let sadness out through music, writing, or crying, without trying to fix it.",
+            'When someone is kind to you, just say "thank you."'
+          ],
+          origins: "This can come from having your feelings ignored or dismissed, losing someone or feeling unsafe with someone close, or growing up in a family that treated emotions as weakness."
+        }
+      },
+      gut: {
+        Open: {
+          description: "You usually know what you want and act on it without long delays.",
+          signs: "You might notice you decide quickly, trust your instincts, and can express anger directly.",
+          watch: "Watch for acting so fast that you skip thinking and caring.",
+          practices: [
+            "Before big decisions, take one breath and check how they affect other people.",
+            "Use your energy in hard exercise or a hands-on skill."
+          ]
+        },
+        Mixed: {
+          description: "You act on what you want in some situations, but hold back when it feels personal.",
+          signs: "You might notice you act easily at work but hesitate in relationships, or the other way around. What you want may feel clear on some days and unclear on others.",
+          practices: [
+            "Each day, act on one small want within thirty seconds.",
+            "Do 10 minutes of hard exercise, then shake out your body.",
+            "Each day, make one direct request without apologizing."
+          ],
+          origins: "This can come from being encouraged to speak up in some places and punished for it in others, or having little support for trying new or risky things."
+        },
+        Closed: {
+          description: "You often don't know what you want, or you know it and still don't act.",
+          signs: "You might notice you wait for permission, talk yourself out of things, feel tension in your stomach, or spend time thinking when you could act.",
+          practices: [
+            "Do 20 minutes of hard exercise, then lie down and breathe slowly into your belly.",
+            "Tighten your stomach for 5 seconds, then relax it as slowly as you can. Repeat 5 times.",
+            "Each day, do one small thing you want to do on the same day you think of it."
+          ],
+          origins: "This can come from being punished or ignored for expressing anger, being loud, or wanting things. A strict home with little freedom, an unpredictable home where any action could go wrong, or few chances for physical play can also contribute."
+        }
+      }
+    };
+
+    function paragraph(text) {
+      const element = document.createElement("p");
+      element.textContent = text;
+      return element;
+    }
+
+    function renderSummary(scores) {
+      let text;
+      if (scores.every(({ score }) => score >= 75)) {
+        text = "All three areas work well for you right now.";
+      } else if (scores.every(({ score }) => score <= 25)) {
+        text = "All three areas feel hard right now. This is common during stress or a hard period. Talking to someone you trust can help.";
+      } else {
+        const lower = scores.find(entry => scores.every(other => other === entry || other.unroundedScore - entry.unroundedScore >= 15));
+        const higher = scores.find(entry => scores.every(other => other === entry || entry.unroundedScore - other.unroundedScore >= 15));
+        const spread = Math.max(...scores.map(({ unroundedScore }) => unroundedScore)) - Math.min(...scores.map(({ unroundedScore }) => unroundedScore));
+        if (lower) {
+          text = `Your ${lower.center} score is your lowest. The practices for your ${lower.center} will probably make the biggest difference.`;
+        } else if (higher) {
+          text = `Your ${higher.center} score is your highest. Check if you rely on it to avoid the other two.`;
+        } else {
+          text = spread <= 15
+            ? "Your three scores are close together."
+            : "Your scores vary, with no one area standing out.";
+        }
+      }
+      document.getElementById("summary").replaceChildren(paragraph(text));
+    }
+
+    function renderCenterDetails(scores) {
+      const details = document.getElementById("center-details");
+      scores.forEach(({ center, band }) => {
+        const content = centerContent[center];
+        const block = document.createElement("section");
+        block.id = `result-${center}`;
+        block.className = "center-detail";
+        const heading = document.createElement("h3");
+        heading.textContent = center.toUpperCase();
+        block.append(heading);
+        const active = content[band];
+        block.append(paragraph(active.signs));
+        if (active.watch) block.append(paragraph(active.watch));
+        const practiceHeading = document.createElement("h4");
+        practiceHeading.textContent = "Try this";
+        const list = document.createElement("ol");
+        active.practices.forEach(practice => {
+          const item = document.createElement("li");
+          item.textContent = practice;
+          list.append(item);
+        });
+        block.append(practiceHeading, list);
+        if (active.origins) block.append(paragraph(active.origins));
+        details.append(block);
+      });
+    }
+
+    function renderResults(scores) {
+      clearResults();
+      clearValidation();
+      submittedScores = scores;
+      const bars = document.getElementById("score-bars");
+      scores.forEach(({ center, score, band }) => {
+        const row = document.createElement("div");
+        row.className = "score";
+        const value = document.createElement("p");
+        const marker = document.createElement("span");
+        marker.className = "score-marker";
+        marker.setAttribute("aria-hidden", "true");
+        value.append(`${score} / 100 `, marker, ` ${getBandLabel(score)}`);
+        row.append(paragraph(center.toUpperCase()), value, paragraph(centerContent[center][band].description));
+        const bar = document.createElement("div");
+        bar.className = "score-bar";
+        bar.setAttribute("aria-hidden", "true");
+        const fill = document.createElement("div");
+        fill.className = "score-fill";
+        fill.style.width = `${score}%`;
+        bar.append(fill);
+        row.append(bar);
+        bars.append(row);
+      });
+      renderSummary(scores);
+      renderCenterDetails(scores);
+      results.hidden = false;
+      const heading = document.getElementById("results-heading");
+      heading.focus({ preventScroll: true });
+      heading.scrollIntoView({ block: "start" });
+    }
+
+    async function copyResults() {
+      if (submittedScores === null) return;
+      const scores = submittedScores;
+      const text = scores.map(({ center, score, band }) =>
+        `${center.toUpperCase()} · ${score} / 100 · ${getBandLabel(score)}\n${centerContent[center][band].description}`
+      ).join("\n\n");
+      clearCopyState();
+      let copied = false;
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+        try {
+          await navigator.clipboard.writeText(text);
+          copied = true;
+        } catch {
+          // Clipboard permission may be unavailable, especially on a local file.
+        }
+      }
+      // A pending clipboard operation must not restore feedback for invalidated scores.
+      if (submittedScores !== scores) return;
+      if (!copied) {
+        const temporary = document.createElement("textarea");
+        temporary.value = text;
+        temporary.readOnly = true;
+        temporary.className = "visually-hidden";
+        results.append(temporary);
+        const previousFocus = document.activeElement;
+        temporary.select();
+        try {
+          copied = document.execCommand("copy");
+        } catch {
+          copied = false;
+        } finally {
+          temporary.remove();
+          previousFocus.focus({ preventScroll: true });
+        }
+      }
+      if (copied) {
+        copyStatus.textContent = "Results copied.";
+      } else {
+        copyFallback.hidden = false;
+        copyText.value = text;
+        copyText.focus();
+        copyText.select();
+        copyStatus.textContent = "Could not copy automatically. Select and copy the results below.";
+      }
+    }
+
+    function resetQuestionnaire() {
+      document.getElementById("questionnaire").reset();
+      answers.fill(null);
+      questionList.querySelectorAll('input[type="radio"]').forEach(input => { input.checked = false; });
+      questions.forEach((question, index) => {
+        document.getElementById(`status-${index + 1}`).textContent = "Unanswered.";
+      });
+      clearValidation();
+      clearResults();
+      document.getElementById("answer-1-1").focus({ preventScroll: true });
+      document.getElementById("page-title").scrollIntoView({ block: "start" });
+    }
+
+    document.getElementById("dev-random-results").addEventListener("click", () => {
+      // Randomize totals first so previews do not average toward Mixed.
+      centers.forEach(center => {
+        const indices = [];
+        questions.forEach((question, index) => {
+          if (question.center === center) indices.push(index);
+        });
+        let remaining = indices.length + Math.floor(Math.random() * (indices.length * 4 + 1));
+        indices.forEach((index, position) => {
+          const left = indices.length - position - 1;
+          const minimum = Math.max(1, remaining - left * 5);
+          const maximum = Math.min(5, remaining - left);
+          const scored = minimum + Math.floor(Math.random() * (maximum - minimum + 1));
+          remaining -= scored;
+          setAnswer(index, questions[index].reverse ? 6 - scored : scored);
+        });
+      });
+      document.getElementById("questionnaire").requestSubmit();
+    });
+    document.getElementById("copy-results").addEventListener("click", copyResults);
+    document.getElementById("start-over").addEventListener("click", resetQuestionnaire);
+    // Starting a click on an unselectable button must not select neighboring text.
+    document.addEventListener("mousedown", event => {
+      if (event.target.closest("button")) event.preventDefault();
+    });
+    // Stack copies of GUT across the last title box, each 4px right of the one before. Earlier copies sit on top;
+    // every copy gets a 1px black edge so the overlaps read as layers instead of one white smear.
+    const gutBox = document.querySelector("#page-title span:nth-child(3)");
+    function drawGutStack() {
+      const step = 4;
+      const shadows = [];
+      for (let i = 0; i < Math.ceil(gutBox.clientWidth / step); i++) {
+        shadows.push(`${i * step + 1}px 0 #000`, `${(i + 1) * step}px 0 #fff`);
+      }
+      gutBox.style.textShadow = shadows.join(",");
+    }
+    new ResizeObserver(drawGutStack).observe(gutBox);
+    drawGutStack();
+    document.addEventListener("click", event => {
+      if (!event.isTrusted) return;
+      const button = event.target.closest("button");
+      // Submit chooses its own cue after validation.
+      if (button && button.type !== "submit") playTock();
+    });
+  </script>
+</body>
+</html>
