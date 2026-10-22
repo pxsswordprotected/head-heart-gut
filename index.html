@@ -1,9 +1,6 @@
 <!doctype html>
 <!--
   Open directly in a browser. Answers stay in memory and reset on reload.
-  Temporary dev shortcut: "Dev: random results" picks independent center totals
-  across the full range, fills matching 1–5 answers with reverse items accounted
-  for, and submits through the normal form; nothing persists on refresh.
   Questionnaire conventions: past-month frequency, all 30 answers required,
   independent reverse-scored means rounded to five.
   Submitting with unanswered questions marks those groups with red outlines.
@@ -11,10 +8,10 @@
   Answer options use normal capitalization and 4px padding on all sides.
   Trusted answer changes and button actions use Web Audio. Incomplete Submit plays
   a soft 150ms buzz; other actions retain the Organic Tock. Submit chooses its cue
-  after validation. Dev submissions have no submitter and rely on the dev button's
-  click, so each action plays one cue. Audio uses no files/network and never blocks the form.
+  after validation. Audio uses no files/network and never blocks the form.
   Displayed scores select reflection bands; near-line labels keep the band name.
-  Results show the area meanings once, then each score/band and its one-sentence result.
+  Results: each area is one group (name, definition, score/band, one-sentence result, bar); the summary
+  and the learn-more link come after all three groups.
   Detail sections use the supplied plain-English copy: two practices for Open,
   three for Closed/Mixed, with origins only for Closed/Mixed. Copies mirror the score blocks.
   Notice, watch-for, and origins paragraphs are complete sentences, rendered
@@ -39,14 +36,6 @@
       font-style: normal;
       font-display: swap;
     }
-    @font-face {
-      font-family: "PP Neue Montreal Medium";
-      src: url("./fonts/PPNeueMontreal-Medium.otf") format("opentype");
-      font-weight: 400;
-      font-style: normal;
-      font-display: swap;
-    }
-    #area-meanings strong { font-family: "PP Neue Montreal Medium", "PP Neue Montreal", Arial, Helvetica, sans-serif; font-weight: 400; }
     * { box-sizing: border-box; }
     [hidden] { display: none !important; }
     ::selection { background: #000; color: #fff; }
@@ -61,8 +50,8 @@
     main { max-width: 90ch; margin: 0 auto; }
     main * { min-width: 0; }
     /* Boxes touch edge to edge. Caps are sized so HEART fills its box width; line-height equals cap height so the letters span the box height with an even 8px inset. */
-    #page-title { container-type: inline-size; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0 0 24px; user-select: none; -webkit-user-select: none; }
-    #page-title span { padding: 7px; border: 1px solid #000; background: #000; color: #fff; font-size: calc((100cqw / 3 - 16px) / 3.05); line-height: 0.715; text-transform: uppercase; text-indent: -0.076em; white-space: nowrap; }
+    #page-title { container-type: inline-size; display: grid; grid-template-columns: repeat(3, minmax(min-content, 1fr)); gap: 0; margin: 0 0 24px; font-weight: 400; user-select: none; -webkit-user-select: none; }
+    #page-title span { padding: 7px; border: 1px solid #000; background: #000; color: #fff; font-size: calc((100cqw / 3 - 16px) / 3.07); line-height: 0.715; text-transform: uppercase; text-indent: -0.076em; white-space: nowrap; }
     #page-title span:nth-child(2) { background: #fff; color: #000; }
     /* Extends the last box from the column edge to the right edge of the page. Its overlapping copies of GUT are drawn with text-shadow
        (set in script from the box width), so they are decorative and never read aloud. */
@@ -74,7 +63,7 @@
     button, input, textarea { font: inherit; color: #000; }
     button, textarea { background: #fff; border: 1px solid #000; border-radius: 0; }
     /* Buttons echo the title: uppercase caps on a cap-height line box, so the letters sit about 4px from every edge. */
-    button { padding: 3px 3px 2px; cursor: pointer; background: #fff; color: #000; font-size: 22px; line-height: 0.715; text-transform: uppercase; text-indent: -0.06em; white-space: nowrap; }
+    button { padding: 3px 3px 2px; min-height: 24px; cursor: pointer; background: #fff; color: #000; font-size: 22px; line-height: 0.715; text-transform: uppercase; text-indent: -0.06em; white-space: nowrap; }
     button[type="submit"], #copy-results { background: #000; color: #fff; }
     @media (hover: hover) {
       button:hover { background: #000; color: #fff; }
@@ -109,6 +98,8 @@
     #score-bars { margin-bottom: 40px; }
     .center-detail { margin: 32px 0; }
     li + li { margin-top: 8px; }
+    .learn-more a, .learn-more a:visited { color: #000; }
+    .learn-more svg { width: 12px; height: 12px; margin-left: 5px; vertical-align: -1px; }
     .center-detail ol { margin: 0 0 16px; padding: 0; list-style-position: inside; }
     .result-actions { display: flex; flex-wrap: wrap; gap: 8px; }
     #copy-fallback { margin-top: 16px; }
@@ -119,9 +110,8 @@
 </head>
 <body>
   <main>
-    <p id="page-title"><span>Head</span><span>Heart</span><span>Gut</span></p>
+    <h1 id="page-title"><span>Head</span> <span>Heart</span> <span>Gut</span></h1>
     <p id="answer-guidance">Answer all 30 questions to see your results. </p>
-    <button type="button" id="dev-random-results">Dev: random results</button>
     <form id="questionnaire" novalidate>
       <div id="questions"></div>
       <button type="submit">Submit</button>
@@ -129,14 +119,10 @@
     </form>
     <section id="results" hidden aria-labelledby="results-heading">
       <h2 id="results-heading" tabindex="-1">Your results</h2>
-      <div id="summary"></div>
-      <div id="area-meanings">
-        <p><strong>Head</strong> is how clearly you think, and how well you plan and set limits.</p>
-        <p><strong>Heart</strong> is how well you notice your feelings, let yourself feel them, and connect with other people.</p>
-        <p><strong>Gut</strong> is how easily you know what you want and act on it.</p>
-      </div>
       <p id="score-explanation">Each score ranges from 0 to 100. A higher score means that area is more open and flexible.</p>
       <div id="score-bars"></div>
+      <div id="summary"></div>
+      <p class="learn-more"><a href="https://x.com/psswordprotectd/status/2111524299022725264?s=20" target="_blank" rel="noopener noreferrer">Learn more about all three<svg aria-hidden="true" focusable="false" viewBox="0 0 12 12"><path d="M2 10 10 2M4 2h6v6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span class="visually-hidden"> (opens in a new tab)</span></a></p>
       <div id="center-details"></div>
       <div class="result-actions">
         <button type="button" id="copy-results">Copy results</button>
@@ -376,7 +362,8 @@
       const wrapper = document.createElement("fieldset");
       wrapper.id = `question-${number}`;
       wrapper.className = "question";
-      wrapper.setAttribute("aria-describedby", `scale-key answer-guidance status-${number}`);
+      wrapper.setAttribute("role", "radiogroup");
+      wrapper.setAttribute("aria-describedby", `answer-guidance status-${number}`);
       const legend = document.createElement("legend");
       legend.textContent = `${number}. ${question.statement}`;
       const control = document.createElement("div");
@@ -604,6 +591,12 @@
       });
     }
 
+    const areaDefinitions = {
+      head: "How clearly you think, and how well you plan and set limits.",
+      heart: "How well you notice your feelings, let yourself feel them, and connect with other people.",
+      gut: "How easily you know what you want and act on it."
+    };
+
     function renderResults(scores) {
       clearResults();
       clearValidation();
@@ -617,7 +610,7 @@
         marker.className = "score-marker";
         marker.setAttribute("aria-hidden", "true");
         value.append(`${score} / 100 `, marker, ` ${getBandLabel(score)}`);
-        row.append(paragraph(center.toUpperCase()), value, paragraph(centerContent[center][band].description));
+        row.append(paragraph(center.toUpperCase()), paragraph(areaDefinitions[center]), value, paragraph(centerContent[center][band].description));
         const bar = document.createElement("div");
         bar.className = "score-bar";
         bar.setAttribute("aria-hidden", "true");
@@ -695,25 +688,6 @@
       document.getElementById("page-title").scrollIntoView({ block: "start" });
     }
 
-    document.getElementById("dev-random-results").addEventListener("click", () => {
-      // Randomize totals first so previews do not average toward Mixed.
-      centers.forEach(center => {
-        const indices = [];
-        questions.forEach((question, index) => {
-          if (question.center === center) indices.push(index);
-        });
-        let remaining = indices.length + Math.floor(Math.random() * (indices.length * 4 + 1));
-        indices.forEach((index, position) => {
-          const left = indices.length - position - 1;
-          const minimum = Math.max(1, remaining - left * 5);
-          const maximum = Math.min(5, remaining - left);
-          const scored = minimum + Math.floor(Math.random() * (maximum - minimum + 1));
-          remaining -= scored;
-          setAnswer(index, questions[index].reverse ? 6 - scored : scored);
-        });
-      });
-      document.getElementById("questionnaire").requestSubmit();
-    });
     document.getElementById("copy-results").addEventListener("click", copyResults);
     document.getElementById("start-over").addEventListener("click", resetQuestionnaire);
     // Starting a click on an unselectable button must not select neighboring text.
