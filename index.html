@@ -28,13 +28,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Head / Heart / Gut</title>
   <link rel="icon" href="data:,">
+  <link rel="preload" href="./fonts/PPNeueMontreal-Book.otf" as="font" type="font/otf" crossorigin>
   <style>
     @font-face {
       font-family: "PP Neue Montreal";
       src: url("./fonts/PPNeueMontreal-Book.otf") format("opentype");
       font-weight: 400;
       font-style: normal;
-      font-display: swap;
+      font-display: block;
     }
     * { box-sizing: border-box; }
     [hidden] { display: none !important; }
@@ -44,6 +45,8 @@
       background: #fff;
       color: #000;
       font: 16px/1.5 "PP Neue Montreal", Arial, Helvetica, sans-serif;
+      /* Only the regular weight is shipped; never fake bold or italic. */
+      font-synthesis: none;
       /* The title's last box bleeds to the right page edge; this keeps that bleed from adding a horizontal scrollbar. */
       overflow-x: hidden;
     }
@@ -59,7 +62,7 @@
     h2 { font-size: 1.5rem; }
     h3 { font-size: 1.25rem; }
     h4 { font-size: 18px; }
-    h2, h3, h4 { line-height: 1.25; }
+    h2, h3, h4 { line-height: 1.25; font-weight: 400; }
     button, input, textarea { font: inherit; color: #000; }
     button, textarea { background: #fff; border: 1px solid #000; border-radius: 0; }
     /* Buttons echo the title: uppercase caps on a cap-height line box, so the letters sit about 4px from every edge. */
